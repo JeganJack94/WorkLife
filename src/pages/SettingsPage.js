@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { User, Camera, Save } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Camera, Save, Check } from 'lucide-react';
 
 const SettingsPage = () => {
   const [profile, setProfile] = useState({
@@ -8,6 +8,8 @@ const SettingsPage = () => {
     sickBalance: 10,
     profileImage: null
   });
+  const [toast, setToast] = useState(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const savedProfile = localStorage.getItem('worklife-profile');
@@ -16,22 +18,51 @@ const SettingsPage = () => {
     }
   }, []);
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfile(prev => ({ ...prev, profileImage: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = () => {
     localStorage.setItem('worklife-profile', JSON.stringify(profile));
-    // Show success message
-    const toast = document.createElement('div');
-    toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg';
-    toast.textContent = 'Settings saved successfully!';
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    
+    // Create toast notification
+    setToast({
+      message: 'Settings saved successfully!',
+      type: 'success'
+    });
+
+    // Remove toast after 3 seconds
+    setTimeout(() => setToast(null), 3000);
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-xl shadow-lg p-6 space-y-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      {/* Toast Notification */}
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 ${
+          toast.type === 'success' 
+            ? 'bg-green-500' 
+            : 'bg-red-500'
+        } text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-bounce`}>
+          <Check className="w-5 h-5" />
+          <span className="text-sm">{toast.message}</span>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 space-y-6">
         <div className="flex flex-col items-center">
           <div className="relative">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-r from-[#CE93D8] to-[#8E24AA] flex items-center justify-center overflow-hidden">
+            <div 
+              className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-gradient-to-r from-purple-400 to-purple-600 
+                         flex items-center justify-center overflow-hidden"
+            >
               {profile.profileImage ? (
                 <img 
                   src={profile.profileImage} 
@@ -42,13 +73,25 @@ const SettingsPage = () => {
                 <User className="w-16 h-16 text-white" />
               )}
             </div>
-            <button className="absolute bottom-0 right-0 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
-              <Camera className="w-5 h-5 text-gray-600" />
+            <button 
+              onClick={() => fileInputRef.current.click()}
+              className="absolute bottom-0 right-0 w-8 h-8 sm:w-10 sm:h-10 
+                         bg-white rounded-full shadow-lg flex items-center justify-center 
+                         hover:bg-gray-50 transition-colors"
+            >
+              <Camera className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
             </button>
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden" 
+            />
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <InputField
             label="Full Name"
             value={profile.name}
@@ -56,19 +99,19 @@ const SettingsPage = () => {
             placeholder="Enter your name"
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <InputField
               label="Planned Leave Balance"
               type="number"
               value={profile.plannedBalance}
-              onChange={(e) => setProfile(prev => ({ ...prev, plannedBalance: e.target.value }))}
+              onChange={(e) => setProfile(prev => ({ ...prev, plannedBalance: parseInt(e.target.value) || 0 }))}
               min="0"
             />
             <InputField
               label="Sick Leave Balance"
               type="number"
               value={profile.sickBalance}
-              onChange={(e) => setProfile(prev => ({ ...prev, sickBalance: e.target.value }))}
+              onChange={(e) => setProfile(prev => ({ ...prev, sickBalance: parseInt(e.target.value) || 0 }))}
               min="0"
             />
           </div>
@@ -76,11 +119,12 @@ const SettingsPage = () => {
 
         <button
           onClick={handleSave}
-          className="w-full bg-gradient-to-r from-[#CE93D8] to-[#8E24AA] text-white py-3 rounded-lg
-                     hover:opacity-90 transition-opacity flex items-center justify-center space-x-2
-                     font-medium shadow-lg"
+          className="w-full bg-gradient-to-r from-purple-400 to-purple-600 
+                     text-white py-3 rounded-lg hover:opacity-90 
+                     transition-opacity flex items-center justify-center 
+                     space-x-2 font-medium shadow-lg text-sm sm:text-base"
         >
-          <Save className="w-5 h-5" />
+          <Save className="w-4 h-4 sm:w-5 sm:h-5" />
           <span>Save Changes</span>
         </button>
       </div>
@@ -90,11 +134,12 @@ const SettingsPage = () => {
 
 const InputField = ({ label, ...props }) => (
   <div>
-    <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">{label}</label>
     <input
       {...props}
-      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#CE93D8] 
-                 focus:border-transparent transition-all duration-200 outline-none"
+      className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 
+                 focus:ring-2 focus:ring-purple-300 focus:border-transparent 
+                 transition-all duration-200 outline-none"
     />
   </div>
 );
