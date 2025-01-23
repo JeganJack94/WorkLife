@@ -1,8 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Camera, Save, Check } from 'lucide-react';
 
+const usePersistedState = (key, initialValue) => {
+  const [state, setState] = useState(() => {
+    try {
+      const savedItem = localStorage.getItem(key);
+      return savedItem ? JSON.parse(savedItem) : initialValue;
+    } catch (error) {
+      console.error('Error reading from localStorage:', error);
+      return initialValue;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(state));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  }, [key, state]);
+
+  return [state, setState];
+};
+
 const SettingsPage = () => {
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = usePersistedState('worklife-user-settings', {
     name: '',
     plannedBalance: 20,
     sickBalance: 10,
@@ -11,12 +33,25 @@ const SettingsPage = () => {
   const [toast, setToast] = useState(null);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    const savedProfile = localStorage.getItem('worklife-profile');
-    if (savedProfile) {
-      setProfile(JSON.parse(savedProfile));
+  const handleSave = () => {
+    try {
+      // Broadcast changes across tabs/windows
+      window.dispatchEvent(new Event('storage'));
+
+      setToast({
+        message: 'Settings saved successfully!',
+        type: 'success'
+      });
+
+      setTimeout(() => setToast(null), 2000);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setToast({
+        message: 'Failed to save settings. Please try again.',
+        type: 'error'
+      });
     }
-  }, []);
+  };
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -29,30 +64,18 @@ const SettingsPage = () => {
     }
   };
 
-  const handleSave = () => {
-    localStorage.setItem('worklife-profile', JSON.stringify(profile));
-    
-    // Create toast notification
-    setToast({
-      message: 'Settings saved successfully!',
-      type: 'success'
-    });
-
-    // Remove toast after 3 seconds
-    setTimeout(() => setToast(null), 3000);
-  };
-
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-      {/* Toast Notification */}
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 relative">
       {toast && (
         <div className={`fixed top-4 right-4 z-50 ${
           toast.type === 'success' 
             ? 'bg-green-500' 
             : 'bg-red-500'
-        } text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 animate-bounce`}>
+        } text-white px-4 py-2 rounded-lg shadow-lg flex items-center space-x-2 
+        transition-all duration-300 transform translate-x-0 opacity-100
+        max-w-xs w-full`}>
           <Check className="w-5 h-5" />
-          <span className="text-sm">{toast.message}</span>
+          <span className="text-sm truncate">{toast.message}</span>
         </div>
       )}
 
@@ -104,14 +127,20 @@ const SettingsPage = () => {
               label="Planned Leave Balance"
               type="number"
               value={profile.plannedBalance}
-              onChange={(e) => setProfile(prev => ({ ...prev, plannedBalance: parseInt(e.target.value) || 0 }))}
+              onChange={(e) => setProfile(prev => ({ 
+                ...prev, 
+                plannedBalance: parseInt(e.target.value) || 0 
+              }))}
               min="0"
             />
             <InputField
               label="Sick Leave Balance"
               type="number"
               value={profile.sickBalance}
-              onChange={(e) => setProfile(prev => ({ ...prev, sickBalance: parseInt(e.target.value) || 0 }))}
+              onChange={(e) => setProfile(prev => ({ 
+                ...prev, 
+                sickBalance: parseInt(e.target.value) || 0 
+              }))}
               min="0"
             />
           </div>

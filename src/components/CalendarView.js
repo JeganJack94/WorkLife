@@ -1,32 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
-import { Calendar as CalendarIcon, Briefcase, Thermometer, Home, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Briefcase, Thermometer, Home, X, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
+const usePersistedState = (key, initialValue) => {
+  const [state, setState] = useState(() => {
+    try {
+      const savedItem = localStorage.getItem(key);
+      return savedItem ? JSON.parse(savedItem) : initialValue;
+    } catch (error) {
+      console.error('Error reading from localStorage:', error);
+      return initialValue;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(state));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  }, [key, state]);
+
+  return [state, setState];
+};
+
 const CalendarView = () => {
-  const [selectedDates, setSelectedDates] = useState({});
+  const [selectedDates, setSelectedDates] = usePersistedState('worklife-calendar', {});
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showSelector, setShowSelector] = useState(null);
-  const [leaveBalance, setLeaveBalance] = useState({ planned: 10, sick: 5 });
+  const [leaveSettings, setLeaveSettings] = usePersistedState('worklife-user-settings', {
+    plannedLeaveBalance: 10,
+    sickLeaveBalance: 5
+  });
 
+  // Cross-tab synchronization
   useEffect(() => {
-    const savedDates = localStorage.getItem('worklife-calendar');
-    const savedProfile = localStorage.getItem('worklife-profile');
-    if (savedDates) {
-      setSelectedDates(JSON.parse(savedDates));
-    }
-    if (savedProfile) {
-      const profile = JSON.parse(savedProfile);
-      setLeaveBalance({
-        planned: profile.plannedBalance || 10,
-        sick: profile.sickBalance || 5
-      });
-    }
-  }, []);
+    const handleStorageChange = (event) => {
+      if (event.key === 'worklife-user-settings') {
+        try {
+          const parsedSettings = JSON.parse(event.newValue);
+          setLeaveSettings({
+            plannedLeaveBalance: parsedSettings.plannedLeaveBalance || 10,
+            sickLeaveBalance: parsedSettings.sickLeaveBalance || 5
+          });
+        } catch (error) {
+          console.error('Error parsing settings:', error);
+        }
+      }
+    };
 
-  useEffect(() => {
-    localStorage.setItem('worklife-calendar', JSON.stringify(selectedDates));
-  }, [selectedDates]);
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [setLeaveSettings]);
 
   const getLeaveStats = () => {
     const usedLeaves = Object.values(selectedDates).reduce((acc, type) => {
@@ -37,7 +63,7 @@ const CalendarView = () => {
     return [
       {
         name: 'Planned Leave',
-        value: leaveBalance.planned - (usedLeaves.planned || 0),
+        value: Math.max(0, leaveSettings.plannedLeaveBalance - (usedLeaves.planned || 0)),
         color: '#3B82F6'
       },
       {
@@ -47,7 +73,7 @@ const CalendarView = () => {
       },
       {
         name: 'Sick Leave',
-        value: leaveBalance.sick - (usedLeaves.sick || 0),
+        value: Math.max(0, leaveSettings.sickLeaveBalance - (usedLeaves.sick || 0)),
         color: '#EF4444'
       },
       {
@@ -67,43 +93,66 @@ const CalendarView = () => {
   const days = eachDayOfInterval({ start: startDate, end: endDate });
   const startingDayIndex = getDay(startDate);
 
-  const toggleDate = (dateStr, type) => {
-    setSelectedDates(prev => ({
-      ...prev,
-      [dateStr]: type
-    }));
+  const toggleDate = (dateStr, type = null) => {
+    setSelectedDates(prev => {
+      const updatedDates = { ...prev };
+      if (type === null || updatedDates[dateStr] === type) {
+        delete updatedDates[dateStr];
+      } else {
+        updatedDates[dateStr] = type;
+      }
+      return updatedDates;
+    });
     setShowSelector(null);
   };
 
   const DateSelector = ({ dateStr, onSelect, onClose }) => (
-    <div className="absolute z-10 bg-white rounded-lg shadow-xl p-2 border border-gray-200 w-48 max-w-full">
-      <div className="flex justify-between items-center mb-2 pb-2 border-b">
-        <span className="font-medium text-gray-700 text-sm">Select Type</span>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+    <div className="absolute z-20 bg-white rounded-xl shadow-2xl border border-gray-200 
+      w-56 p-3 transform -translate-x-1/2 left-1/2 
+      transition-all duration-300 ease-in-out">
+      <div className="flex justify-between items-center mb-3 pb-2 border-b">
+        <span className="font-semibold text-gray-700 text-sm">{format(new Date(dateStr), 'dd MMM yyyy')}</span>
+        <button 
+          onClick={onClose} 
+          className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full p-1"
+        >
           <X className="w-4 h-4" />
         </button>
       </div>
-      <div className="space-y-1">
+      <div className="space-y-2">
+        {[
+          { type: 'planned', label: 'Planned Leave', icon: Home, color: 'blue' },
+          { type: 'sick', label: 'Sick Leave', icon: Thermometer, color: 'red' },
+          { type: 'office', label: 'Work From Home', icon: Briefcase, color: 'green' }
+        ].map(({ type, label, icon: Icon, color }) => (
+          <button
+            key={type}
+            onClick={() => onSelect(dateStr, type)}
+            className={`
+              w-full flex items-center justify-between p-2 rounded-lg 
+              hover:bg-${color}-50 text-left text-sm
+              ${selectedDates[dateStr] === type ? `bg-${color}-100` : ''}
+            `}
+          >
+            <div className="flex items-center space-x-2">
+              <Icon className={`w-4 h-4 text-${color}-600`} />
+              <span>{label}</span>
+            </div>
+            {selectedDates[dateStr] === type && <span className="text-xs text-gray-500">Selected</span>}
+          </button>
+        ))}
         <button
-          onClick={() => onSelect(dateStr, 'planned')}
-          className="w-full flex items-center space-x-2 p-1 rounded-lg hover:bg-blue-50 text-left text-xs"
+          onClick={() => onSelect(dateStr, null)}
+          className="
+            w-full flex items-center justify-between p-2 rounded-lg 
+            hover:bg-gray-50 text-left text-sm
+            text-gray-600 hover:text-gray-800
+          "
         >
-          <Home className="w-3 h-3 text-blue-600" />
-          <span>Planned Leave (PL)</span>
-        </button>
-        <button
-          onClick={() => onSelect(dateStr, 'sick')}
-          className="w-full flex items-center space-x-2 p-1 rounded-lg hover:bg-red-50 text-left text-xs"
-        >
-          <Thermometer className="w-3 h-3 text-red-600" />
-          <span>Sick Leave (SL)</span>
-        </button>
-        <button
-          onClick={() => onSelect(dateStr, 'office')}
-          className="w-full flex items-center space-x-2 p-1 rounded-lg hover:bg-green-50 text-left text-xs"
-        >
-          <Briefcase className="w-3 h-3 text-green-600" />
-          <span>Work From Home (WFH)</span>
+          <div className="flex items-center space-x-2">
+            <MoreHorizontal className="w-4 h-4 text-gray-500" />
+            <span>Clear Selection</span>
+          </div>
         </button>
       </div>
     </div>
@@ -125,11 +174,10 @@ const CalendarView = () => {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-      {/* Leave Balance Overview */}
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-4">Leave Balance Overview</h3>
         <div className="flex flex-col sm:flex-row items-center">
-          <div className="w-full sm:w-1/2 h-48 sm:h-64">
+          <div className="w-full sm:w-1/2" style={{ height: '300px' }}> {/* Fixed height */}
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -145,7 +193,12 @@ const CalendarView = () => {
                 </Pie>
                 <Tooltip 
                   formatter={(value, name) => [`${value} days`, name]}
-                  contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    borderRadius: '8px', 
+                    border: 'none', 
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>
