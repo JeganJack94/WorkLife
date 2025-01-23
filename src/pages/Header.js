@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Settings, FileText } from 'lucide-react';
+import { Calendar, FileText } from 'lucide-react';
 
 const Header = ({ activePage, setActivePage }) => {
   return (
@@ -25,12 +25,6 @@ const Header = ({ activePage, setActivePage }) => {
               label="Notes"
               active={activePage === 'notes'}
               onClick={() => setActivePage('notes')}
-            />
-            <NavButton 
-              icon={<Settings className="w-4 h-4" />} 
-              label="Settings"
-              active={activePage === 'settings'}
-              onClick={() => setActivePage('settings')}
             />
           </nav>
         </div>

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Header from './pages/Header';
 import CalendarView from './components/CalendarView';
-import SettingsPage from './pages/SettingsPage';
 import NotesPage from './pages/NotesPage';
 
 const App = () => {
@@ -33,15 +32,13 @@ const App = () => {
       <Header activePage={activePage} setActivePage={setActivePage} />
       
       <main className="container mx-auto py-6 px-4">
-        <div className={`transition-all duration-300 ${activePage === 'home' ? 'opacity-100' : 'opacity-0 hidden'}`}>
+        <div className={`transition-all duration-300 ${
+          activePage === 'home' ? 'opacity-100' : 'opacity-0 hidden'}`}>
           <CalendarView />
         </div>
-        
-        <div className={`transition-all duration-300 ${activePage === 'settings' ? 'opacity-100' : 'opacity-0 hidden'}`}>
-          <SettingsPage />
-        </div>
-        
-        <div className={`transition-all duration-300 ${activePage === 'notes' ? 'opacity-100' : 'opacity-0 hidden'}`}>
+              
+        <div className={`transition-all duration-300 ${
+          activePage === 'notes' ? 'opacity-100' : 'opacity-0 hidden'}`}>
           <NotesPage />
         </div>
       </main>

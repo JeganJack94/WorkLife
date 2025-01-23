@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from 'date-fns';
-import { Briefcase, Thermometer, Home, X, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import React, { useState, useEffect } from "react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from "date-fns";
+import { Briefcase, Thermometer, Home, X, ChevronLeft, ChevronRight, MoreHorizontal, Settings } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 const usePersistedState = (key, initialValue) => {
   const [state, setState] = useState(() => {
@@ -9,7 +9,7 @@ const usePersistedState = (key, initialValue) => {
       const savedItem = localStorage.getItem(key);
       return savedItem ? JSON.parse(savedItem) : initialValue;
     } catch (error) {
-      console.error('Error reading from localStorage:', error);
+      console.error("Error reading from localStorage:", error);
       return initialValue;
     }
   });
@@ -18,7 +18,7 @@ const usePersistedState = (key, initialValue) => {
     try {
       localStorage.setItem(key, JSON.stringify(state));
     } catch (error) {
-      console.error('Error saving to localStorage:', error);
+      console.error("Error saving to localStorage:", error);
     }
   }, [key, state]);
 
@@ -26,33 +26,12 @@ const usePersistedState = (key, initialValue) => {
 };
 
 const CalendarView = () => {
-  const [selectedDates, setSelectedDates] = usePersistedState('worklife-calendar', {});
+  const [selectedDates, setSelectedDates] = usePersistedState("worklife-calendar", {});
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [plannedBalance, setPlannedBalance] = usePersistedState("planned-balance", 20);
+  const [sickBalance, setSickBalance] = usePersistedState("sick-balance", 10);
   const [showSelector, setShowSelector] = useState(null);
-  const [leaveSettings, setLeaveSettings] = usePersistedState('worklife-user-settings', {
-    plannedLeaveBalance: 10,
-    sickLeaveBalance: 5
-  });
-
-  // Cross-tab synchronization
-  useEffect(() => {
-    const handleStorageChange = (event) => {
-      if (event.key === 'worklife-user-settings') {
-        try {
-          const parsedSettings = JSON.parse(event.newValue);
-          setLeaveSettings({
-            plannedLeaveBalance: parsedSettings.plannedLeaveBalance || 10,
-            sickLeaveBalance: parsedSettings.sickLeaveBalance || 5
-          });
-        } catch (error) {
-          console.error('Error parsing settings:', error);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [setLeaveSettings]);
+  const [isModalOpen, setIsModalOpen] = useState(false); // State for modal
 
   const getLeaveStats = () => {
     const usedLeaves = Object.values(selectedDates).reduce((acc, type) => {
@@ -62,30 +41,30 @@ const CalendarView = () => {
 
     return [
       {
-        name: 'Planned Leave',
-        value: Math.max(0, leaveSettings.plannedLeaveBalance - (usedLeaves.planned || 0)),
-        color: '#3B82F6'
+        name: "Planned Leave",
+        value: Math.max(0, plannedBalance - (usedLeaves.planned || 0)),
+        color: "#3B82F6",
       },
       {
-        name: 'Used Planned Leave',
+        name: "Used Planned Leave",
         value: usedLeaves.planned || 0,
-        color: '#93C5FD'
+        color: "#93C5FD",
       },
       {
-        name: 'Sick Leave',
-        value: Math.max(0, leaveSettings.sickLeaveBalance - (usedLeaves.sick || 0)),
-        color: '#EF4444'
+        name: "Sick Leave",
+        value: Math.max(0, sickBalance - (usedLeaves.sick || 0)),
+        color: "#EF4444",
       },
       {
-        name: 'Used Sick Leave',
+        name: "Used Sick Leave",
         value: usedLeaves.sick || 0,
-        color: '#FCA5A5'
-      }
+        color: "#FCA5A5",
+      },
     ];
   };
 
   const navigateMonth = (direction) => {
-    setCurrentMonth(direction === 'next' ? addMonths(currentMonth, 1) : subMonths(currentMonth, 1));
+    setCurrentMonth(direction === "next" ? addMonths(currentMonth, 1) : subMonths(currentMonth, 1));
   };
 
   const startDate = startOfMonth(currentMonth);
@@ -94,7 +73,7 @@ const CalendarView = () => {
   const startingDayIndex = getDay(startDate);
 
   const toggleDate = (dateStr, type = null) => {
-    setSelectedDates(prev => {
+    setSelectedDates((prev) => {
       const updatedDates = { ...prev };
       if (type === null || updatedDates[dateStr] === type) {
         delete updatedDates[dateStr];
@@ -159,13 +138,14 @@ const CalendarView = () => {
   );
 
   const getDateStyle = (type) => {
-    const baseStyle = "h-full w-full rounded-lg flex flex-col items-center justify-center transition-all duration-200 cursor-pointer relative text-xs";
-    switch(type) {
-      case 'planned':
+    const baseStyle =
+      "h-full w-full rounded-lg flex flex-col items-center justify-center transition-all duration-200 cursor-pointer relative text-xs";
+    switch (type) {
+      case "planned":
         return `${baseStyle} bg-blue-100 text-blue-800 hover:bg-blue-200`;
-      case 'sick':
+      case "sick":
         return `${baseStyle} bg-red-100 text-red-800 hover:bg-red-200`;
-      case 'office':
+      case "office":
         return `${baseStyle} bg-green-100 text-green-800 hover:bg-green-200`;
       default:
         return `${baseStyle} bg-white hover:bg-gray-50`;
@@ -174,11 +154,17 @@ const CalendarView = () => {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 relative">
         <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-4">Leave Balance Overview</h3>
+        <button
+          onClick={() => setIsModalOpen(true)} // Open modal
+          className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <Settings className="w-5 h-5 text-gray-600" />
+        </button>
         <div className="flex flex-col sm:flex-row items-center">
-          <div className="w-full sm:w-1/2" style={{ height: '300px' }}> {/* Fixed height */}
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="w-full sm:w-1/2" style={{ minHeight: "300px" }}>
+            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
               <PieChart>
                 <Pie
                   data={getLeaveStats()}
@@ -191,13 +177,13 @@ const CalendarView = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip 
+                <Tooltip
                   formatter={(value, name) => [`${value} days`, name]}
-                  contentStyle={{ 
-                    backgroundColor: 'white', 
-                    borderRadius: '8px', 
-                    border: 'none', 
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+                  contentStyle={{
+                    backgroundColor: "white",
+                    borderRadius: "8px",
+                    border: "none",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                   }}
                 />
               </PieChart>
@@ -293,9 +279,57 @@ const CalendarView = () => {
               </div>
             );
           })}
+       
+
+      {/* Modal for Leave Settings */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg w-96">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-700">Set Leave Balances</h3>
+              <button
+                onClick={() => setIsModalOpen(false)} // Close modal
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-gray-600">Planned Leaves:</label>
+                <input
+                  type="number"
+                  value={plannedBalance}
+                  onChange={(e) => setPlannedBalance(parseInt(e.target.value) || 0)}
+                  className="w-20 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-300 outline-none"
+                  min="0"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium text-gray-600">Sick Leaves:</label>
+                <input
+                  type="number"
+                  value={sickBalance}
+                  onChange={(e) => setSickBalance(parseInt(e.target.value) || 0)}
+                  className="w-20 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-300 outline-none"
+                  min="0"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setIsModalOpen(false)} // Close modal
+                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition"
+              >
+                Save
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
+    </div>
+      </div>
   );
 };
 
