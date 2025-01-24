@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from "date-fns";
-import { Briefcase, Thermometer, Home, X, ChevronLeft, ChevronRight, MoreHorizontal, Settings, TentTree } from "lucide-react";
+import { Briefcase, Thermometer, Home, X, ChevronLeft, ChevronRight, TentTree, MoreHorizontal, Settings } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Label } from "recharts";
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
 
 const usePersistedState = (key, initialValue) => {
   const [state, setState] = useState(() => {
@@ -33,34 +37,61 @@ const CalendarView = () => {
   const [showSelector, setShowSelector] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const calculateWFOPercentage = (days) => {
+  const calculateWFOData = (days) => {
     const totalMonthDays = days.length;
     const weekends = days.filter(day => [0, 6].includes(getDay(day))).length;
     
-    const holidays = Object.keys(selectedDates)
+    const currentMonthStr = format(currentMonth, 'yyyy-MM');
+    const monthSelectedDates = Object.keys(selectedDates)
+      .filter(date => date.startsWith(currentMonthStr));
+
+    const holidays = monthSelectedDates
       .filter(date => selectedDates[date] === 'holiday')
       .length;
     
-    const plannedLeaves = Object.keys(selectedDates)
+    const plannedLeaves = monthSelectedDates
       .filter(date => selectedDates[date] === 'planned')
       .length;
     
-    const sickLeaves = Object.keys(selectedDates)
+    const sickLeaves = monthSelectedDates
       .filter(date => selectedDates[date] === 'sick')
       .length;
     
-    const workFromOfficeDays = Object.keys(selectedDates)
+    const workFromOfficeDays = monthSelectedDates
       .filter(date => selectedDates[date] === 'office')
       .length;
     
     const actualWorkingDays = totalMonthDays - weekends - holidays - plannedLeaves - sickLeaves;
+    const targetWFODays = Math.round(actualWorkingDays * 0.4);
     const wfoPercentage = (workFromOfficeDays / actualWorkingDays) * 100 || 0;
     
     return {
       wfoPercentage: Math.round(wfoPercentage),
       workFromOfficeDays,
-      actualWorkingDays
+      actualWorkingDays,
+      targetWFODays
     };
+  };
+
+  const getWFOStats = () => {
+    const startDate = startOfMonth(currentMonth);
+    const endDate = endOfMonth(currentMonth);
+    const days = eachDayOfInterval({ start: startDate, end: endDate });
+    
+    const { workFromOfficeDays, targetWFODays } = calculateWFOData(days);
+
+    return [
+      {
+        name: "Work From Office",
+        value: workFromOfficeDays,
+        color: "#10B981", // Green color
+      },
+      {
+        name: "Remaining WFO Days",
+        value: Math.max(0, targetWFODays - workFromOfficeDays),
+        color: "#6EE7B7", // Light green
+      }
+    ];
   };
 
   const getLeaveStats = () => {
@@ -68,12 +99,6 @@ const CalendarView = () => {
       acc[type] = (acc[type] || 0) + 1;
       return acc;
     }, {});
-
-    const startDate = startOfMonth(currentMonth);
-    const endDate = endOfMonth(currentMonth);
-    const days = eachDayOfInterval({ start: startDate, end: endDate });
-    
-    const { wfoPercentage, workFromOfficeDays, actualWorkingDays } = calculateWFOPercentage(days);
 
     return [
       {
@@ -95,16 +120,6 @@ const CalendarView = () => {
         name: "Used Sick Leave",
         value: usedLeaves.sick || 0,
         color: "#FCA5A5",
-      },
-      {
-        name: "Work From Office",
-        value: workFromOfficeDays,
-        color: "#10B981", // Green color
-      },
-      {
-        name: "Office Days Remaining",
-        value: Math.max(0, Math.round(actualWorkingDays * 0.4) - workFromOfficeDays),
-        color: "#6EE7B7", // Light green
       }
     ];
   };
@@ -203,61 +218,130 @@ const CalendarView = () => {
 
   return (
     <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 relative">
-        <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-4">Leave & WFO Overview</h3>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
-        >
-          <Settings className="w-5 h-5 text-gray-600" />
-        </button>
-        <div className="flex flex-col sm:flex-row items-center">
-          <div className="w-full sm:w-1/2" style={{ minHeight: "300px" }}>
-            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-              <PieChart>
-                <Pie
-                  data={getLeaveStats()}
-                  innerRadius="60%"
-                  outerRadius="80%"
-                  paddingAngle={5}
-                  dataKey="value"
-                >
+      <Swiper
+        modules={[Navigation]}
+        spaceBetween={20}
+        slidesPerView={1}
+        navigation
+        breakpoints={{
+          768: {
+            slidesPerView: 1.2,
+          },
+          1024: {
+            slidesPerView: 2,
+          }
+        }}
+      >
+        {/* Leaves Balance Chart */}
+        <SwiperSlide>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 relative h-full">
+            <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-4">Leave Balance Overview</h3>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <Settings className="w-5 h-5 text-gray-600" />
+            </button>
+            <div className="flex flex-col sm:flex-row items-center">
+              <div className="w-full sm:w-1/2" style={{ minHeight: "300px" }}>
+                <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                  <PieChart>
+                    <Pie
+                      data={getLeaveStats()}
+                      innerRadius="60%"
+                      outerRadius="80%"
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {getLeaveStats().map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value, name) => [`${value} days`, name]}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="w-full sm:w-1/2 mt-4 sm:mt-0 sm:pl-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   {getLeaveStats().map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <div key={index} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+                      <div>
+                        <span className="text-xs sm:text-sm text-gray-600 block">{entry.name}</span>
+                        <span className="text-sm sm:text-base font-semibold">{entry.value} days</span>
+                      </div>
+                    </div>
                   ))}
-                  <Label
-                    value={`${calculateWFOPercentage(days).wfoPercentage}%`}
-                    position="center"
-                    className="text-2xl font-bold text-gray-800"
-                  />
-                </Pie>
-                <Tooltip
-                  formatter={(value, name) => [`${value} days`, name]}
-                  contentStyle={{
-                    backgroundColor: "white",
-                    borderRadius: "8px",
-                    border: "none",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="w-full sm:w-1/2 mt-4 sm:mt-0 sm:pl-4">
-            <div className="grid grid-cols-2 gap-2 sm:gap-4">
-              {getLeaveStats().map((entry, index) => (
-                <div key={index} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
-                  <div>
-                    <span className="text-xs sm:text-sm text-gray-600 block">{entry.name}</span>
-                    <span className="text-sm sm:text-base font-semibold">{entry.value} days</span>
-                  </div>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </SwiperSlide>
+
+        {/* Work From Office Chart */}
+        <SwiperSlide>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 relative h-full">
+            <h3 className="text-base sm:text-lg font-semibold mb-2 sm:mb-4">Work From Office Overview</h3>
+            <div className="flex flex-col sm:flex-row items-center">
+              <div className="w-full sm:w-1/2" style={{ minHeight: "300px" }}>
+                <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                  <PieChart>
+                    <Pie
+                      data={getWFOStats()}
+                      innerRadius="60%"
+                      outerRadius="80%"
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {getWFOStats().map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                      <Label
+                        value={`${calculateWFOData(eachDayOfInterval({ 
+                          start: startOfMonth(currentMonth), 
+                          end: endOfMonth(currentMonth) 
+                        })).wfoPercentage}%`}
+                        position="center"
+                        className="text-2xl font-bold text-gray-800"
+                      />
+                    </Pie>
+                    <Tooltip
+                      formatter={(value, name) => [`${value} days`, name]}
+                      contentStyle={{
+                        backgroundColor: "white",
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="w-full sm:w-1/2 mt-4 sm:mt-0 sm:pl-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                  {getWFOStats().map((entry, index) => (
+                    <div key={index} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+                      <div>
+                        <span className="text-xs sm:text-sm text-gray-600 block">{entry.name}</span>
+                        <span className="text-sm sm:text-base font-semibold">{entry.value} days</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </SwiperSlide>
+      </Swiper>
 
       {/* Calendar Section */}
       <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
