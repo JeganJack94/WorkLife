@@ -1,26 +1,23 @@
 import React, { useState, useEffect, useRef } from "react";
 import { User, Camera, Save, Check, Trash2 } from "lucide-react";
+import { saveData, loadData } from '../utils/storage';
 
 const usePersistedState = (key, initialValue) => {
-  const [state, setState] = useState(() => {
-    try {
-      const savedItem = localStorage.getItem(key);
-      return savedItem ? JSON.parse(savedItem) : initialValue;
-    } catch (error) {
-      console.error("Error reading from localStorage:", error);
-      return initialValue;
-    }
-  });
+  const [state, setState] = useState(initialValue);
+
+  useEffect(() => {
+    loadData(key).then(savedItem => {
+      if (savedItem !== null && savedItem !== undefined) {
+        setState(savedItem);
+      }
+    });
+    // eslint-disable-next-line
+  }, [key]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(key, JSON.stringify(state));
-      } catch (error) {
-        console.error("Error saving to localStorage:", error);
-      }
-    }, 300); // Debounce to 300ms
-
+      saveData(key, state);
+    }, 300);
     return () => clearTimeout(timer);
   }, [key, state]);
 

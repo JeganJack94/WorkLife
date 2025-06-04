@@ -6,24 +6,22 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/navigation';
+import { saveData, loadData } from '../utils/storage';
 
 const usePersistedState = (key, initialValue) => {
-  const [state, setState] = useState(() => {
-    try {
-      const savedItem = localStorage.getItem(key);
-      return savedItem ? JSON.parse(savedItem) : initialValue;
-    } catch (error) {
-      console.error("Error reading from localStorage:", error);
-      return initialValue;
-    }
-  });
+  const [state, setState] = useState(initialValue);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(state));
-    } catch (error) {
-      console.error("Error saving to localStorage:", error);
-    }
+    loadData(key).then(savedItem => {
+      if (savedItem !== null && savedItem !== undefined) {
+        setState(savedItem);
+      }
+    });
+    // eslint-disable-next-line
+  }, [key]);
+
+  useEffect(() => {
+    saveData(key, state);
   }, [key, state]);
 
   return [state, setState];

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PlusCircle, Trash2, Edit2, Save, X, Notebook } from 'lucide-react';
+import { saveData, loadData } from '../utils/storage';
 
 const NotesPage = () => {
   const [notes, setNotes] = useState([]);
@@ -8,14 +9,13 @@ const NotesPage = () => {
   const [editText, setEditText] = useState('');
 
   useEffect(() => {
-    const savedNotes = localStorage.getItem('worklife-notes');
-    if (savedNotes) {
-      setNotes(JSON.parse(savedNotes));
-    }
+    loadData('worklife-notes').then(savedNotes => {
+      if (savedNotes) setNotes(savedNotes);
+    });
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('worklife-notes', JSON.stringify(notes));
+    saveData('worklife-notes', notes);
   }, [notes]);
 
   const addNote = () => {
